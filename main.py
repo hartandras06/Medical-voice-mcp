@@ -21,8 +21,6 @@ CurrentDevice = {
     "Pulse oximeter": "98%"
 }
 
-
-# 2. Hangmotorok (TTS & STT)
 def speak(text: str):
     print(f"\n[ScrubVoice answer]: {text}")
     engine = pyttsx3.init()
@@ -67,7 +65,6 @@ class State(TypedDict):
     message_intent: str | None
 
 
-# 4. Csomópontok (Jelzik ha elérte őket a vezérlés)
 def classify_intent(state: State):
     print("\n>>> [NODE: Classifier] Determining intent in progress...")
     structured_llm = llm.with_structured_output(IntentClassifier)
