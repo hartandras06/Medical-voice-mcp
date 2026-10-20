@@ -7,6 +7,7 @@ from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langgraph.checkpoint.memory import InMemorySaver
 
+# Ollama agent
 llm = ChatOllama(model="llama3.2", temperature=0)
 
 # Currently, this is a local mock dictionary.
@@ -22,6 +23,7 @@ CurrentDevice = {
 }
 
 def speak(text: str):
+    # Speech output
     print(f"\n[ScrubVoice answer]: {text}")
     engine = pyttsx3.init()
     engine.setProperty("rate", 170)
@@ -30,6 +32,7 @@ def speak(text: str):
 
 
 def listen_to_doctor() -> str | None:
+    # Speech Input
     recognizer = sr.Recognizer()
     with sr.Microphone() as source:
         print("\n" + "=" * 45)
@@ -49,6 +52,7 @@ def listen_to_doctor() -> str | None:
         return None
 
 class IntentClassifier(BaseModel):
+    # Router Schema
     message_intent: Literal["device", "query", "create"] = Field(
         ...,
         description=(
@@ -65,7 +69,9 @@ class State(TypedDict):
     message_intent: str | None
 
 
+# Classifier node
 def classify_intent(state: State):
+
     print("\n>>> [NODE: Classifier] Determining intent in progress...")
     structured_llm = llm.with_structured_output(IntentClassifier)
 
@@ -78,7 +84,7 @@ def classify_intent(state: State):
     print(f">>> [NODE: Classifier] Selected Route: {result.message_intent}")
     return {'message_intent': result.message_intent}
 
-
+# Device Node
 def prompt_llm_device(state: State):
     print("\n>>> [NODE: Device] Running the Device/Telemetry branch...")
     system_prompt = f"You are ScrubVoice. Current operating room devices: {CurrentDevice}. Answer very briefly."
@@ -88,7 +94,7 @@ def prompt_llm_device(state: State):
     speak(response.content)
     return {'messages': [{'role': 'assistant', 'content': response.content}]}
 
-
+# Query Node
 def prompt_llm_query(state: State):
     print("\n>>> [NODE: Query] Running a database query thread...")
     system_prompt = f"You are ScrubVoice. Clinical patient records: {PATIENTS_DB}. Answer clinical queries briefly."
@@ -98,13 +104,14 @@ def prompt_llm_query(state: State):
     speak(response.content)
     return {'messages': [{'role': 'assistant', 'content': response.content}]}
 
-
+# Create Node
 def prompt_llm_create(state: State):
     print("\n>>> [NODE: Create] Running the “Set Record” branch...")
     confirmation = "I recorded the new information into the registry."
     speak(confirmation)
     return {'messages': [{'role': 'assistant', 'content': confirmation}]}
 
+# Build LangGraph
 graph_builder = StateGraph(State)
 
 graph_builder.add_node('classifier', classify_intent)
@@ -114,6 +121,7 @@ graph_builder.add_node('create_prompt', prompt_llm_create)
 
 graph_builder.add_edge(START, 'classifier')
 
+# Conditional edges to 'agent' nodes
 graph_builder.add_conditional_edges(
     'classifier',
     lambda state: state['message_intent'],
@@ -128,8 +136,10 @@ graph_builder.add_edge('device_prompt', END)
 graph_builder.add_edge('query_prompt', END)
 graph_builder.add_edge('create_prompt', END)
 
+# Enable State Persistence
 checkpointer = InMemorySaver()
 app = graph_builder.compile(checkpointer=checkpointer)
+
 if __name__ == "__main__":
     speak("ScrubVoice online.")
 
@@ -139,10 +149,11 @@ if __name__ == "__main__":
         doctor_text = listen_to_doctor()
         if not doctor_text:
             continue
-
+        # Exit
         if any(exit_word in doctor_text.lower() for exit_word in ["exit", "quit", "stop"]):
             speak("ScrubVoice shutting down.")
             break
+
         app.invoke(
             {
                 "messages": [{'role': 'user', 'content': doctor_text}],
