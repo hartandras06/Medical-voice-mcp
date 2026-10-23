@@ -53,7 +53,7 @@ Manually checking monitors or retrieving patient data interrupts the surgical wo
 
 Pull the local language model:
 ```bash
-ollama run llama3.2
+ollama pull llama3.2
 ```
 
 ---
